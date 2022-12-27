@@ -1,0 +1,85 @@
+- name: react node 
+  hosts: _ansible_react
+  become: true
+  tasks:
+    - name: update the node
+      yum:
+        name: '*'
+        state: latest
+    - name: uninstall old versions
+      yum:
+        name: "{{ item }}"
+        state: removed
+      loop:
+        - docker 
+        - docker-client 
+        - docker-client-latest 
+        - docker-common 
+        - docker-latest 
+        - docker-latest-logrotate 
+        - docker-logrotate 
+        - docker-engine   
+    - name: install yum-utils
+        yum:
+          name: yum-utils
+          state: latest
+    - name: add docker repo
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/dcoker-ce.repo
+    - name: install docker
+      package:
+        name: docker-ce
+        state: latest
+    - name: install pip
+      package:
+        name: python3-pip
+        state: present
+    - name: install docker sdk
+      pip:
+        name: docker
+    - name: add ec2-user to docker group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+    - name: start docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+    - name: create build directory 
+      file:
+        path: /home/ec2-user/frontend 
+        state: directory 
+        owner: root 
+        group: root 
+        mode: "0755"
+    - name: copy files to the react node 
+      copy: 
+        src: /home/ec2-user/mern-tutorial/frontend/
+        dest: /home/ec2-user/frontend
+    - name: copy the dockerfile 
+      copy:
+        src: /home/ec2-user/mern-tutorial/frontend/Dockerfile
+        dest: /home/ec2-user/frontend
+    - name: remove container and image if exist 
+      shell: "docker ps -q --filter 'name=flamentes_mernstack-frontend' && docker stop flamentes_mernstack-frontend && docker rm -fv flamentes_mernstack-frontend && docker image rm -f flamentes/mernstack-frontend || echo 'Not found'"
+    - name: build container image 
+      docker_image:
+        name: flamentes/mernstack-frontend
+        build:
+          path: /home/ec2-user/frontend
+        source: build 
+        state: present 
+    - name: create frontend docker container
+      docker_container:
+        name: flamentes_mernstack-frontend
+        image: flamentes/mernstack-frontend
+        state: started 
+        ports:
+          - "3000:3000"
+      register: container_info 
+    - name: print container_info 
+      debug: 
+        var: container_info

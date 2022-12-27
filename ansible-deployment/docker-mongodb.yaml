@@ -1,0 +1,72 @@
+- name:  configure mongodb node 
+  hosts: _ansible_mongodb
+  become: true 
+  tasks: 
+    - name:  update the node 
+      yum:
+        name: '*'
+        state: latest 
+    - name: uninstall old versions 
+      yum:
+        name: "{{ item }}" 
+        state: removed 
+      loop:
+        - docker 
+        - docker-client 
+        - docker-client-latest 
+        - docker-common 
+        - docker-latest 
+        - docker-latest-logrotate 
+        - docker-logrotate 
+        - docker-engine   
+    - name: install yum-utils
+      yum:
+        name: yum-utils
+        state: latest 
+    - name: add docker repo 
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/dcoker-ce.repo
+    - name: install docker 
+      package:
+        name: docker-ce
+        state: present 
+    - name: install pip 
+      package:
+        name: python3-pip
+        state: present 
+    - name: install docker sdk 
+      pip:
+        name: docker
+    - name: add ec2-user to docker group 
+      user: 
+        name: ec2-user 
+        groups: docker
+        append: yes
+    - name: start docker service 
+      systemd:
+        name: docker
+        enable: yes
+        state: started 
+    - name: create build directory 
+      file: 
+        path: /home/ec2-user/database
+        state: directory 
+        owner: root 
+        group: root 
+        mode: "0755"
+    - name: remove container and image if exist
+      shell: "docker ps -q --filter 'name=mongo_db' && docker stop mongo_db && docker rm -fv mongo_db && docker image rm -f mongo || echo 'Not Found'"
+    - name: create postgresql docker container
+      docker_container:
+        name: mongo_db
+        image: mongo
+        state: started 
+        ports:
+          - "27017:27017"
+        volumes: 
+          - mongo_db:/data/db
+      register: container_info
+    - name: print container_info
+      debug:
+        var: container_info

@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: frontend-deploy
+  name: frontend-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-deploy
+  template:
+    metadata:
+      labels:
+        app: frontend-deploy
+    spec:
+      containers:
+      - image: flamentes/mernstack-frontend
+        name: mernstack-frontend
+        ports:
+          - containerPort: 3000
+        resources: {}
+
